@@ -23,8 +23,7 @@ body {
     max-width: 950px;
     width: 95%;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    max-height: 90vh;
-    overflow: hidden;
+    margin: 0 auto; /* Center on page */
 }
 
 /* Header */
@@ -575,51 +574,62 @@ body {
 .layer-7 .upgrade-indicator { color: #9C27B0; }    /* Purple temples */
 .layer-8 .upgrade-indicator { color: #3F51B5; }    /* Blue wizards */
 
-/* ===== MOBILE SAFARI FIX ===== */
+/* Responsive Design */
 @media (max-width: 768px) {
-    .game-container {
-        max-height: 100vh;
-        overflow-y: auto;
-        padding-bottom: 20px; /* Extra space for footer */
+    .main-game {
+        flex-direction: column;
     }
     
-    .main-game {
-        margin-bottom: 100px; /* Push content up to make room for footer */
+    .cookie-area, .upgrades-panel {
+        min-width: 100%;
+        height: auto;
+    }
+    
+    .cookie-area {
+        padding: 25px 15px;
+        height: 280px;
+    }
+    
+    .cookie i {
+        font-size: 5rem;
+    }
+    
+    .header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .stats {
+        width: 100%;
+        justify-content: space-around;
     }
     
     .footer {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(10px);
-        border-radius: 20px 20px 0 0;
-        padding: 12px;
-        margin: 0;
-        z-index: 100;
-        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.2);
+        flex-direction: column;
+        gap: 10px;
     }
     
     .btn {
-        min-width: 100px;
-        padding: 10px 15px;
-        font-size: 0.9em;
+        width: 100%;
+        max-width: 250px;
     }
     
-    #save-status {
-        min-width: 100px;
-        font-size: 0.85em;
+    /* ===== CRITICAL: Fix mobile scrolling ===== */
+    body {
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
     }
-}
-
-/* iOS Safari specific fixes */
-@supports (-webkit-overflow-scrolling: touch) {
+    
     .game-container {
-        -webkit-overflow-scrolling: touch;
+        max-height: none; /* Remove height restriction */
+        min-height: 100vh;
+        overflow-y: visible; /* Allow content to expand */
+        padding-bottom: 30px; /* Extra space at bottom */
     }
     
     .upgrades-panel {
-        -webkit-overflow-scrolling: touch;
+        max-height: 300px; /* Slightly smaller on mobile */
     }
 }
