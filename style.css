@@ -574,3 +574,52 @@ body {
 .layer-6 .upgrade-indicator { color: #FF9800; }    /* Orange banks */
 .layer-7 .upgrade-indicator { color: #9C27B0; }    /* Purple temples */
 .layer-8 .upgrade-indicator { color: #3F51B5; }    /* Blue wizards */
+
+/* ===== MOBILE SAFARI FIX ===== */
+@media (max-width: 768px) {
+    .game-container {
+        max-height: 100vh;
+        overflow-y: auto;
+        padding-bottom: 20px; /* Extra space for footer */
+    }
+    
+    .main-game {
+        margin-bottom: 100px; /* Push content up to make room for footer */
+    }
+    
+    .footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        border-radius: 20px 20px 0 0;
+        padding: 12px;
+        margin: 0;
+        z-index: 100;
+        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn {
+        min-width: 100px;
+        padding: 10px 15px;
+        font-size: 0.9em;
+    }
+    
+    #save-status {
+        min-width: 100px;
+        font-size: 0.85em;
+    }
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-overflow-scrolling: touch) {
+    .game-container {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .upgrades-panel {
+        -webkit-overflow-scrolling: touch;
+    }
+}
