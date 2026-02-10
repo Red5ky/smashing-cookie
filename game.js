@@ -1,7 +1,8 @@
 console.log('🎮 Game starting...');
 
 // ===== GAME STATE =====
-let cookies = 0;
+let cookies = 0;              // Display value (integer)
+let cookiesRaw = 0;           // Internal value (float) - CRITICAL FIX
 let cookiesPerSecond = 0;
 let prestigeMultiplier = 1;
 let lastUpdate = Date.now();
@@ -40,15 +41,25 @@ function calcCPS() {
     return total * prestigeMultiplier;
 }
 
+// CRITICAL FIX: Track raw cookies (float) and display cookies (integer)
 function addCookies(amount) {
-    cookies += amount;
-    updateDisplay();
+    cookiesRaw += amount;           // Accumulate fractional cookies
+    const wholeCookies = Math.floor(cookiesRaw);
+    
+    if (wholeCookies > cookies) {
+        cookies = wholeCookies;     // Only update display when we have whole cookies
+        updateCookieCounter();
+        updateUpgradeAffordability();
+    }
 }
 
 function clickCookie() {
-    addCookies(1 * prestigeMultiplier);
+    // Click gives whole cookies immediately
+    cookiesRaw += 1 * prestigeMultiplier;
+    cookies = Math.floor(cookiesRaw);
+    updateCookieCounter();
+    updateUpgradeAffordability();
     
-    // Floating cookie
     const container = document.getElementById('floating-cookies');
     if (container) {
         const el = document.createElement('div');
@@ -64,51 +75,73 @@ function clickCookie() {
 // ===== UPGRADE SYSTEM =====
 function buyUpgrade(type) {
     const cost = getCost(type);
-    console.log(`🛒 Buy ${type}: cost=${cost}, have=${cookies}`);
     
     if (cookies >= cost) {
         cookies -= cost;
+        cookiesRaw -= cost;  // Also deduct from raw
         upgrades[type].level++;
         cookiesPerSecond = calcCPS();
-        console.log(`✅ SUCCESS! ${type} level=${upgrades[type].level}, cookies left=${cookies}`);
-        
-        // Force immediate UI update
-        setTimeout(updateDisplay, 10);
-        
+        rebuildFullUI();
         saveGame();
         showNotification(`✅ +${upgradeNames[type]} (Lv${upgrades[type].level})`);
     } else {
-        console.log(`❌ Cannot afford ${type}`);
-        showNotification(`❌ Need ${formatNum(cost)} cookies`);
+        showNotification(`❌ Need ${formatNum(cost)} cookies (have ${cookies})`);
     }
 }
 
 // ===== DISPLAY =====
-function updateDisplay() {
-    // Update cookie counter
+function updateCookieCounter() {
     const cookieCountEl = document.getElementById('cookie-count');
     const cpsEl = document.getElementById('cps');
+    const prestigeBtn = document.getElementById('prestige-btn');
+    
     if (cookieCountEl) cookieCountEl.textContent = formatNum(cookies);
     if (cpsEl) cpsEl.textContent = formatNum(cookiesPerSecond);
     
-    console.log(`🔄 UI Update: cookies=${Math.floor(cookies)}, CPS=${cookiesPerSecond}`);
-    
-    // Prestige button
-    const btn = document.getElementById('prestige-btn');
-    const mult = Math.floor(Math.sqrt(cookies / 1000000));
-    if (btn) {
-        btn.innerHTML = `<i class="fas fa-star"></i> Prestige (${mult}x)`;
-        btn.disabled = cookies < 1000000;
+    if (prestigeBtn) {
+        const mult = Math.floor(Math.sqrt(cookies / 1000000));
+        prestigeBtn.innerHTML = `<i class="fas fa-star"></i> Prestige (${mult}x)`;
+        prestigeBtn.disabled = cookies < 1000000;
     }
-    
-    // Render upgrades - COMPLETELY REBUILD
+}
+
+function updateUpgradeAffordability() {
     const list = document.getElementById('upgrades-list');
-    if (!list) {
-        console.error('❌ upgrades-list not found!');
-        return;
-    }
+    if (!list) return;
     
-    // Clear and rebuild
+    const items = list.querySelectorAll('.upgrade-item');
+    items.forEach(item => {
+        const type = item.getAttribute('data-upgrade');
+        if (!type) return;
+        
+        const cost = getCost(type);
+        const affordable = cookies >= cost;
+        
+        item.classList.remove('affordable', 'clickable', 'disabled');
+        if (affordable) {
+            item.classList.add('affordable', 'clickable');
+        } else {
+            item.classList.add('disabled');
+        }
+        
+        const costEl = item.querySelector('.upgrade-cost');
+        if (costEl) {
+            costEl.innerHTML = `<i class="fas fa-cookie-bite"></i> ${formatNum(cost)}`;
+        }
+        
+        const cpsEl = item.querySelector('.upgrade-cps');
+        if (cpsEl) {
+            cpsEl.innerHTML = `<i class="fas fa-bolt"></i> ${formatNum(upgrades[type].cps * prestigeMultiplier)} CPS`;
+        }
+    });
+}
+
+function rebuildFullUI() {
+    updateCookieCounter();
+    
+    const list = document.getElementById('upgrades-list');
+    if (!list) return;
+    
     list.innerHTML = '';
     
     for (const type in upgrades) {
@@ -116,7 +149,7 @@ function updateDisplay() {
         const affordable = cookies >= cost;
         
         const item = document.createElement('div');
-        item.className = 'upgrade-item' + (affordable ? ' affordable clickable' : ' disabled');
+        item.className = affordable ? 'upgrade-item affordable clickable' : 'upgrade-item disabled';
         item.setAttribute('data-upgrade', type);
         
         item.innerHTML = `
@@ -133,36 +166,32 @@ function updateDisplay() {
         
         list.appendChild(item);
     }
-    
-    console.log('✅ UI fully rebuilt');
 }
 
 function formatNum(num) {
     if (num >= 1e9) return (num/1e9).toFixed(1) + 'B';
     if (num >= 1e6) return (num/1e6).toFixed(1) + 'M';
     if (num >= 1e3) return (num/1e3).toFixed(1) + 'K';
-    return Math.floor(num);
+    return num.toString();
 }
 
 // ===== SAVE/LOAD =====
 function saveGame() {
     try {
         localStorage.setItem('idleGameSave', JSON.stringify({
-            cookies, cookiesPerSecond, prestigeMultiplier, upgrades, timestamp: Date.now()
+            cookies, cookiesRaw, cookiesPerSecond, prestigeMultiplier, upgrades, timestamp: Date.now()
         }));
         showStatus('✅ Saved');
-    } catch(e) {
-        console.error('Save failed:', e);
-    }
+    } catch(e) {}
 }
 
 function loadGame() {
-    const data = localStorage.getItem('idleGameSave');
-    if (data) {
-        try {
+    try {
+        const data = localStorage.getItem('idleGameSave');
+        if (data) {
             const s = JSON.parse(data);
-            console.log('📥 Loading:', s);
-            cookies = s.cookies || 0;
+            cookies = Math.floor(s.cookies) || 0;
+            cookiesRaw = s.cookiesRaw || s.cookies || 0;  // Load raw value
             cookiesPerSecond = s.cookiesPerSecond || 0;
             prestigeMultiplier = s.prestigeMultiplier || 1;
             if (s.upgrades) {
@@ -173,12 +202,11 @@ function loadGame() {
                 }
             }
             lastUpdate = Date.now();
-            updateDisplay();
-            showStatus('🎮 Loaded');
-        } catch(e) { 
-            console.error('Load error:', e);
+            rebuildFullUI();
+        } else {
+            rebuildFullUI();
         }
-    }
+    } catch(e) {}
 }
 
 function showStatus(msg) {
@@ -203,61 +231,62 @@ function gameLoop() {
     const now = Date.now();
     const delta = (now - lastUpdate) / 1000;
     lastUpdate = now;
-    if (cookiesPerSecond > 0) addCookies(cookiesPerSecond * delta);
+    
+    if (cookiesPerSecond > 0) {
+        addCookies(cookiesPerSecond * delta);  // Accumulates fractional cookies
+    }
+    
     requestAnimationFrame(gameLoop);
 }
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Initializing...');
+    // Clean corrupted saves
+    try {
+        const data = localStorage.getItem('idleGameSave');
+        if (data) {
+            const s = JSON.parse(data);
+            if (typeof s.cookies === 'number' && !Number.isInteger(s.cookies) && !s.cookiesRaw) {
+                console.log('🧹 Cleaning old save format...');
+                localStorage.removeItem('idleGameSave');
+            }
+        }
+    } catch(e) {}
     
-    // Cookie click
     const cookieArea = document.querySelector('.cookie-area');
-    if (cookieArea) {
-        cookieArea.addEventListener('click', clickCookie);
-        console.log('✅ Cookie handler ready');
-    }
+    if (cookieArea) cookieArea.addEventListener('click', clickCookie);
     
-    // Prestige
     document.getElementById('prestige-btn')?.addEventListener('click', () => {
         if (cookies >= 1000000) {
             const mult = Math.floor(Math.sqrt(cookies / 1000000));
             prestigeMultiplier = 1 + mult * 0.1;
             cookies = 0;
+            cookiesRaw = 0;
             for (const t in upgrades) upgrades[t].level = 0;
             cookiesPerSecond = 0;
-            updateDisplay();
+            rebuildFullUI();
             showNotification(`🌟 Prestige! +${mult * 10}% multiplier`);
         }
     });
     
-    // Save/Load
     document.getElementById('save-btn')?.addEventListener('click', saveGame);
     document.getElementById('load-btn')?.addEventListener('click', loadGame);
     
-    // Event delegation for upgrades
     const upgradesList = document.getElementById('upgrades-list');
     if (upgradesList) {
         upgradesList.addEventListener('click', function(e) {
             const item = e.target.closest('.upgrade-item');
             if (item && !item.classList.contains('disabled')) {
                 const type = item.getAttribute('data-upgrade');
-                if (type) {
-                    console.log('🖱️ Click:', type);
-                    buyUpgrade(type);
-                }
+                if (type) buyUpgrade(type);
             }
         });
-        console.log('✅ Upgrade handler ready');
     }
     
-    // Start
     loadGame();
     lastUpdate = Date.now();
     gameLoop();
-    setTimeout(() => showNotification('🍪 Click cookie → Buy upgrades!'), 800);
-    
-    console.log('✅ Game ready!');
+    setTimeout(() => showNotification('🍪 Auto-generating cookies now works!'), 1000);
 });
 
 setInterval(saveGame, 60000);
